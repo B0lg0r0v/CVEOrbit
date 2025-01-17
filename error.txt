@@ -1,4 +1,0 @@
-Error: cannot open /Users/aminasyan/.local/bin/core/start.lua: No such file or directory
-stack traceback:
-	[C]: in function 'xpcall'
-	[string "local core..."]:6: in main chunk
