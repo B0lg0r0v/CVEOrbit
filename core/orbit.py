@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import requests
-import json
-import datetime
-from functools import reduce
-import textwrap
-
 from core.colors import Colors
+from functools import reduce
+import requests
+import textwrap
+import json
+import time
+import os
 
-class Fetcher:
+class Orbit:
 
     def __init__(self):
         self.base_url = 'https://services.nvd.nist.gov/rest/json/cves/2.0'
@@ -19,31 +19,28 @@ class Fetcher:
         self.params = { }
         self.names = { }
         self.colors = Colors()
+        self.last_fetched_timestamp = None
 
 
     """
     This function is used to flatten nested lists
     """
     @staticmethod
-    def flatten_list(lst):
+    def flatten_list(lst) -> list:
         return list(reduce(lambda x, y: x + (y if isinstance(y, list) else [y]), lst, []))
     
     
     '''
     I use this to check if the list is nested. If it is, I flatten it. 
     '''
-    def flatten_if_nested(self, lst):
+    def flatten_if_nested(self, lst) -> list:
         # Checking if any element in the list is a list itself
         if any(isinstance(i, list) for i in lst):
             return self.flatten_list(lst)
         return lst
     
-
-    """
-    Function to fetch CVEs via the search mode. You can give as many filters as you want to the function. My goal was to make the filtering mechanism as flexible as possible by
-    "dynamically" constructing the URL depending on the filters you provide.
-    """
-    def fetch_cve_keywords(self, names, filters=None,  SAVE_TO_JSON=False, DEBUG=False) -> list:
+    
+    def search_engine(self, names, filters=None, SAVE_TO_JSON=False, DEBUG=False) -> list:
         
         # The "l_params" list is used to store each URL for each vendor or product
         l_params = []
@@ -105,19 +102,15 @@ class Fetcher:
                     for z, n in zip(f_keys, f_values):
                         url += f'&{z}={n}'
                     l_params.append(url)
-
+        
         # Debug info
         if DEBUG:
             print(self.colors.light_yellow(f'[DBG] Constructed the following URL: {l_params}'))
 
-        counter = 0 # Counter for tracking which vendor or product we are fetching the CVEs for
-        # Fetching the CVEs
-        try:
-            for param in l_params:
-
-                # The "results" list is used to store the fetched CVEs if you want to save them to a JSON file
-                results = []
-
+        # The "results" list is used to store the fetched CVEs if you want to save them to a JSON file
+        results = []
+        for param in l_params:
+                
                 # Debug info
                 if DEBUG:
                     print(self.colors.light_yellow(f'[DBG] Requesting the following URL: [{param}]'))
@@ -125,16 +118,16 @@ class Fetcher:
                 # Some error handling in case there is an issue with the API, internet connection, etc.
                 try:
                     response = requests.get(param, headers=self.headers)
+                    response.raise_for_status()
                     data = response.json()
 
                 except Exception as e:
                     print(self.colors.light_red(f'[ERR] An error occured while fetching the data: {e}'))
-
+                
                 # Getting the amount of vulnerabilities found (amount of keys inside the 'vulnerabilities' key)
                 amount = len(data['vulnerabilities'])
                 if amount == 0:
-                    print(self.colors.blue(f'[INF] Found 0 vulnerabilities for {f_value[counter]}'))
-                    counter += 1
+                    print(self.colors.blue(f'[INF] Found 0 vulnerabilities for {f_value}'))
                     continue
 
                 # Looping through the amount of vulnerabilities found
@@ -142,8 +135,8 @@ class Fetcher:
                     
                     # Printing this only once. Quick and dirty way xD
                     if i == 0:
-                        print(self.colors.blue(f'[INF] Found {amount} vulnerabilities for {f_value[counter]}'))
-                        print(Colors.bold(Colors.green(f'\nResults for {f_value[counter]}:\n')))
+                        print(self.colors.blue(f'[INF] Found {amount} vulnerabilities for {f_value}'))
+                        print(Colors.bold(Colors.green(f'\nResults for {f_value}:\n')))
                     
                     # We can now fetch the keys and values from the JSON response
                     cve_id = data['vulnerabilities'][i]['cve']['id']
@@ -162,13 +155,6 @@ class Fetcher:
 
                     if DEBUG:
                         print(self.colors.light_yellow(f'[DBG] Found the following metrics: {json.dumps(metrics, indent=5)}'))
-
-                    # Here we are handling the case if the CVSS version is 2.0. The key arrangement is different
-                    # Depending on the CVSS Score version.
-                    if 'cvssMetricV2' in metrics:
-                        version = metrics['cvssMetricV2'][0]['cvssData']['version']
-                        base_score = metrics['cvssMetricV2'][0]['cvssData']['baseScore']
-                        base_severity = metrics['cvssMetricV2'][0]['baseSeverity']
 
                     # Handling version 3.0
                     if 'cvssMetricV30' in metrics:
@@ -211,23 +197,52 @@ class Fetcher:
                         'Last Modified': last_modified,
                         'Description': description
                     })
-                
-                # Saving the results to a JSON file
-                if SAVE_TO_JSON:
-                   with open(f'cveorbit_results_{f_value[counter]}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json', 'w') as f:
-                        json.dump(results, f, indent=4)
-                        print(self.colors.blue(f'[INF] Successfully exported the fetched CVEs to cveorbit_results_{f_value[counter]}_{datetime.datetime.now()}.json\n'))
-
-                # Incrementing the counter to fetch the next vendor or product
-                counter += 1
-
-        except KeyboardInterrupt:
-            print(self.colors.blue('[INF] You aborted the fetching process. Exiting...'))
-            exit(0)
-
-        except Exception as e:
-            print(self.colors.light_red(f'[ERR] An error occured while fetching the data: {e}'))
-            exit(1)
 
         return results
-            
+    
+
+    def continuous_monitoring(self, names, filters, update_period, request_limit, SAVE_TO_JSON=False, DEBUG=False):
+        
+        request_count = 0
+        start_time = time.time()
+        file_path = 'cveorbit_monitoring.json'
+        file_size_limit = 200 * 1024 * 1024
+
+        try:
+            while True:
+                if request_count < request_limit:
+                    # Update filters with the last fetched timestamp to get only new CVEs
+                    if self.last_fetched_timestamp:
+                        filters['pubStartDate'] = self.last_fetched_timestamp
+
+                    results = self.search_engine(names, filters, SAVE_TO_JSON, DEBUG)
+                    if SAVE_TO_JSON:
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > file_size_limit:
+                            mode = 'w'  # Overwrite the file if it exceeds the size limit
+                        else:
+                            mode = 'a'  # Append to the file
+
+                        with open(file_path, mode) as f:
+                            json.dump(results, f, indent=4)
+
+                    request_count += 1
+                    if DEBUG:
+                        print(self.colors.light_yellow(f'[DBG] Request count: {request_count}'))
+
+                else:
+                    elapsed_time = time.time() - start_time
+
+                    if elapsed_time < update_period:
+                        sleep_time = update_period - elapsed_time
+
+                        if DEBUG:
+                            print(self.colors.light_yellow(f'[DBG] Sleeping for {sleep_time} seconds'))
+
+                        time.sleep(sleep_time)
+                    request_count = 0
+                    start_time = time.time()
+        
+        except KeyboardInterrupt:
+            print(self.colors.light_red(f'\n[INF] Stopping the monitoring...'))
+            exit(0)
+                
