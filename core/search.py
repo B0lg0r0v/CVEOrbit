@@ -130,8 +130,6 @@ class Fetcher:
 
                 except Exception as e:
                     print(self.colors.light_red(f'[ERR] An error occured while fetching the data: {e}'))
-
-
                 
                 # Getting the amount of vulnerabilities found (amount of keys inside the 'vulnerabilities' key)
                 amount = len(data['vulnerabilities'])

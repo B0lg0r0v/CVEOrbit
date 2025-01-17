@@ -7,6 +7,8 @@ import textwrap
 import json
 import time
 import os
+from datetime import datetime
+import sys
 
 class Orbit:
 
@@ -45,11 +47,6 @@ class Orbit:
         # The "l_params" list is used to store each URL for each vendor or product
         l_params = []
 
-        # Debug info
-        if DEBUG:
-            print(self.colors.light_yellow(f'[DBG] Debug mode is set to: {DEBUG}'))
-            print(self.colors.light_yellow(f'[DBG] SAVE_TO_JSON is set to: {SAVE_TO_JSON}'))
-
         # I have made two separate dictionaries for the so called "names", which are basically vendors and/or products you would search for. And then
         # we have the filters, which are the filtering mechanism you can use to narrow down the search (refer to the -h flag).
         # I'm not sure if this is the "elegant" way to do this, but for now it can "dnyamically" construct the URL depending on your filters.
@@ -68,13 +65,6 @@ class Orbit:
         # Same as above but for the filters
         f_keys = list(self.params.keys())
         f_values = list(self.params.values())
-
-        # If you are unsure what those values are, use the -d flag to enable the DEBUG mode which will print the results below
-        if DEBUG:
-            print(self.colors.light_yellow(f'[DBG] Found the following NAME keys: {keys}'))
-            print(self.colors.light_yellow(f'[DBG] Found the following NAME values: {values}'))
-            print(self.colors.light_yellow(f'[DBG] Found the following FILTER keys: {f_keys}'))
-            print(self.colors.light_yellow(f'[DBG] Found the following FILTER values: {f_values}'))
 
         # Flattening the lists (it's a nested list)
         f_value = self.flatten_if_nested(values)
@@ -102,10 +92,6 @@ class Orbit:
                     for z, n in zip(f_keys, f_values):
                         url += f'&{z}={n}'
                     l_params.append(url)
-        
-        # Debug info
-        if DEBUG:
-            print(self.colors.light_yellow(f'[DBG] Constructed the following URL: {l_params}'))
 
         # The "results" list is used to store the fetched CVEs if you want to save them to a JSON file
         results = []
@@ -127,7 +113,7 @@ class Orbit:
                 # Getting the amount of vulnerabilities found (amount of keys inside the 'vulnerabilities' key)
                 amount = len(data['vulnerabilities'])
                 if amount == 0:
-                    print(self.colors.blue(f'[INF] Found 0 vulnerabilities for {f_value}'))
+                    #print(self.colors.blue(f'[INF] Found 0 vulnerabilities for {f_value}'))
                     continue
 
                 # Looping through the amount of vulnerabilities found
@@ -197,52 +183,69 @@ class Orbit:
                         'Last Modified': last_modified,
                         'Description': description
                     })
-
+   
         return results
     
 
     def continuous_monitoring(self, names, filters, update_period, request_limit, SAVE_TO_JSON=False, DEBUG=False):
         
         request_count = 0
-        start_time = time.time()
+        timer = time.time()
+        start_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000')
         file_path = 'cveorbit_monitoring.json'
         file_size_limit = 200 * 1024 * 1024
+
+        # This is useless but I love it! xD
+        spinner = ['|', '/', '-', '\\']
+
+        # If there are more than 1 vendor or products, the search engine will do a GET request for each of them.
+        values = list(names.values())
+        f_values = self.flatten_if_nested(values)
+        
+        if len(f_values) > 1:
+            request_limit /= len(f_values)
 
         try:
             while True:
                 if request_count < request_limit:
-                    # Update filters with the last fetched timestamp to get only new CVEs
-                    if self.last_fetched_timestamp:
-                        filters['pubStartDate'] = self.last_fetched_timestamp
+                   
+                    filters['pubStartDate'] = start_time
+                    filters['pubEndDate'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
                     results = self.search_engine(names, filters, SAVE_TO_JSON, DEBUG)
+
                     if SAVE_TO_JSON:
-                        if os.path.exists(file_path) and os.path.getsize(file_path) > file_size_limit:
-                            mode = 'w'  # Overwrite the file if it exceeds the size limit
+                        if os.path.exists(file_path) and os.path.getsize(file_path) < file_size_limit:
+                            mode = 'a'
                         else:
-                            mode = 'a'  # Append to the file
+                            mode = 'w'
 
                         with open(file_path, mode) as f:
-                            json.dump(results, f, indent=4)
-
+                            json.dump(results, f, indent=5)
+                            f.write('\n')
+                    
                     request_count += 1
                     if DEBUG:
                         print(self.colors.light_yellow(f'[DBG] Request count: {request_count}'))
 
                 else:
-                    elapsed_time = time.time() - start_time
+                    elapsed_time = time.time() - timer
 
                     if elapsed_time < update_period:
-                        sleep_time = update_period - elapsed_time
 
                         if DEBUG:
-                            print(self.colors.light_yellow(f'[DBG] Sleeping for {sleep_time} seconds'))
+                            print(self.colors.light_yellow(f'[DBG] Sleeping for {update_period} seconds...'))
+                        
+                        # Visual timer
+                        for remaining in range(int(update_period), 0, -1):
+                            for symbol in spinner:
+                                sys.stdout.write(self.colors.blue(f"\r[INF] Sleeping: {remaining} seconds remaining {symbol}"))
+                                sys.stdout.flush()
+                                time.sleep(0.25)
 
-                        time.sleep(sleep_time)
                     request_count = 0
-                    start_time = time.time()
+                    timer = time.time()
         
         except KeyboardInterrupt:
-            print(self.colors.light_red(f'\n[INF] Stopping the monitoring...'))
+            print(self.colors.blue(f'\n[INF] You aborted the fetching process. Exiting...'))
             exit(0)
-                

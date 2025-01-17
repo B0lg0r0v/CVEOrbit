@@ -312,9 +312,18 @@ def main():
         names = { }
         filters = { }
 
+        if args.update_period:
+            update_period = args.update_period
+        else:
+            update_period = 3600
+        if args.limit_requests:
+            request_limit = args.limit_requests
+        else:
+            request_limit = 5
+
         print(color.blue(f'[INF] Orbit mode activated...'))
-        print(color.blue(f'[INF] Update period: {args.update_period} seconds'))
-        print(color.blue(f'[INF] Limiting requests to: {args.limit_requests}'))
+        print(color.blue(f'[INF] Update period: {update_period} seconds'))
+        print(color.blue(f'[INF] Limiting requests to: {request_limit}'))
 
         if args.output is False:
 
@@ -325,21 +334,46 @@ def main():
                 print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords}'))
                 
                 names['keywordSearch'] = args.filter_keywords
-                orbit.continuous_monitoring(names, filters, update_period=3600, request_limit=10, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
 
             if args.filter_keywords and args.filter_severity_3:
                 print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords} and severity: {args.filter_severity_3}'))
                 
                 names['keywordSearch'] = args.filter_keywords
                 filters['cvssV3Severity'] = args.filter_severity_3
-                orbit.continuous_monitoring(names, filters, update_period=3600, request_limit=10, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
 
             if args.filter_keywords and args.filter_severity_4:
                 print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords} and severity: {args.filter_severity_4}'))
                 
                 names['keywordSearch'] = args.filter_keywords
                 filters['cvssV4Severity'] = args.filter_severity_4
-                orbit.continuous_monitoring(names, filters, update_period=3600, request_limit=10, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=False, DEBUG=g_DEBUG)
+        
+        elif args.output is True:
+
+            if args.filter_keywords and not any([
+                args.filter_severity_3,
+                args.filter_severity_4
+                ]):
+                print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords}'))
+                
+                names['keywordSearch'] = args.filter_keywords
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=True, DEBUG=g_DEBUG)
+
+            if args.filter_keywords and args.filter_severity_3:
+                print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords} and severity: {args.filter_severity_3}'))
+                
+                names['keywordSearch'] = args.filter_keywords
+                filters['cvssV3Severity'] = args.filter_severity_3
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=True, DEBUG=g_DEBUG)
+
+            if args.filter_keywords and args.filter_severity_4:
+                print(color.blue(f'[INF] Filtering with keywords: {args.filter_keywords} and severity: {args.filter_severity_4}'))
+                
+                names['keywordSearch'] = args.filter_keywords
+                filters['cvssV4Severity'] = args.filter_severity_4
+                orbit.continuous_monitoring(names, filters, update_period, request_limit, SAVE_TO_JSON=True, DEBUG=g_DEBUG)
 
 
 if __name__ == '__main__':

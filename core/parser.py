@@ -29,8 +29,8 @@ def common_args(parser, monitoring=True, search=True):
     # Only available in monitoring mode
     if monitoring:
         #options_group.add_argument('-lc', '--limit-cve', type=int, help='Limit the number of CVEs to be fetched', default=10)
-        options_group.add_argument('-lr', '--limit-requests', type=int, help='Limit the number of requests to be made', default=10)
-        options_group.add_argument('-up', '--update-period', type=int, help='Update period in seconds', default=3600)
+        options_group.add_argument('-lr', '--limit-requests', type=int, help='Limit the number of requests to be made')
+        options_group.add_argument('-up', '--update-period', type=int, help='Update period in seconds')
     
     # Globaly available option
     options_group.add_argument('-o', '--output', action='store_true', help='Output file to store the fetched CVEs (in JSON)')
