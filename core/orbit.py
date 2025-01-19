@@ -119,7 +119,7 @@ class Orbit:
                     except requests.exceptions.HTTPError as e:
                         if response.status_code >= 500:
                             print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
-                            time.sleep(1300)
+                            time.sleep(1800) # Sleep for 30 minutes in case of server error
                             continue
 
                         else:
