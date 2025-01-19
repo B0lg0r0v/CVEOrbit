@@ -96,19 +96,44 @@ class Orbit:
         # The "results" list is used to store the fetched CVEs if you want to save them to a JSON file
         results = []
         for param in l_params:
-                
+                            
                 # Debug info
                 if DEBUG:
                     print(self.colors.light_yellow(f'[DBG] Requesting the following URL: [{param}]'))
 
-                # Some error handling in case there is an issue with the API, internet connection, etc.
-                try:
-                    response = requests.get(param, headers=self.headers)
-                    response.raise_for_status()
-                    data = response.json()
+                # The API can be overloaded, or unreachable for some reason, so I decided to still continue the requests until it is back to "normal"
+                while True:
 
-                except Exception as e:
-                    print(self.colors.light_red(f'[ERR] An error occured while fetching the data: {e}'))
+                    # Some error handling in case there is an issue with the API, internet connection, etc.
+                    try:
+                        response = requests.get(param, headers=self.headers)
+                        response.raise_for_status()
+                        data = response.json()
+
+                        if response.status_code == 200:
+                            if DEBUG:
+                                print(self.colors.light_yellow(f'[DBG] HTTP response code: \t{response.status_code} OK'))
+                            break
+
+                    # Handling HTTP errors
+                    except requests.exceptions.HTTPError as e:
+                        if response.status_code >= 500:
+                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            time.sleep(1300)
+                            continue
+
+                        else:
+                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            break
+                    
+                    except json.decoder.JSONDecodeError as e:
+                        print(self.colors.red(f'[ERR] JSON error occurred: {e}'))
+                        break
+
+                # Checking the data variable for NoneType
+                if data is None:
+                    print(self.colors.red(f'[ERR] No data found for {f_value}'))
+                    continue
                 
                 # Getting the amount of vulnerabilities found (amount of keys inside the 'vulnerabilities' key)
                 amount = len(data['vulnerabilities'])
@@ -183,6 +208,8 @@ class Orbit:
                         'Last Modified': last_modified,
                         'Description': description
                     })
+
+                
    
         return results
     
@@ -220,13 +247,14 @@ class Orbit:
                         else:
                             mode = 'w'
 
-                        with open(file_path, mode) as f:
-                            json.dump(results, f, indent=5)
-                            f.write('\n')
+                        if results:
+                            with open(file_path, mode) as f:
+                                json.dump(results, f, indent=5)
+                                f.write('\n')
                     
                     request_count += 1
                     if DEBUG:
-                        print(self.colors.light_yellow(f'[DBG] Request count: {request_count}'))
+                        print(self.colors.light_yellow(f'[DBG] Request count: \t\t{request_count}'))
 
                 else:
                     elapsed_time = time.time() - timer
@@ -234,7 +262,7 @@ class Orbit:
                     if elapsed_time < update_period:
 
                         if DEBUG:
-                            print(self.colors.light_yellow(f'[DBG] Sleeping for {update_period} seconds...'))
+                            print(self.colors.light_yellow(f'[DBG] Sleeping for: \t\t{update_period} seconds'))
                         
                         # Visual timer
                         for remaining in range(int(update_period), 0, -1):
