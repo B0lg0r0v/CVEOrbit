@@ -118,12 +118,13 @@ class Orbit:
                     # Handling HTTP errors
                     except requests.exceptions.HTTPError as e:
                         if response.status_code >= 500:
-                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            print(self.colors.red(f'\n[ERR] HTTP error occurred: {e}'))
+                            print(self.colors.red(f'[ERR] Sleeping for 30 minutes...'))
                             time.sleep(1800) # Sleep for 30 minutes in case of server error
                             continue
 
                         else:
-                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            print(self.colors.red(f'\n[ERR] HTTP error occurred: {e}'))
                             break
                     
                     except json.decoder.JSONDecodeError as e:
@@ -267,7 +268,7 @@ class Orbit:
                         # Visual timer
                         for remaining in range(int(update_period), 0, -1):
                             for symbol in spinner:
-                                sys.stdout.write(self.colors.blue(f"\r[INF] Sleeping: {remaining} seconds remaining {symbol}"))
+                                sys.stdout.write(self.colors.blue(f"\r[INF] Sleeping: {remaining} second(s) remaining {symbol}"))
                                 sys.stdout.flush()
                                 time.sleep(0.25)
 
