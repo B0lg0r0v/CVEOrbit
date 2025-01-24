@@ -44,7 +44,7 @@ def common_args(parser, monitoring=True, search=True):
         alert_group.add_argument('-ate', '--alert-teams', type=str, help='Microsoft Teams webhook to send alerts to')
 
     # Debugging args
-    debug_group.add_argument('-v', '--version', action='version', help='Show version information', version='CVEOrbit v0.1.0')
+    debug_group.add_argument('-v', '--version', action='version', help='Show version information', version='CVEOrbit v0.1.1')
     debug_group.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
     debug_group.add_argument('-si', '--silent', action='store_true', help='Enable silent mode')
 

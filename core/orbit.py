@@ -22,6 +22,7 @@ class Orbit:
         self.names = { }
         self.colors = Colors()
         self.last_fetched_timestamp = None
+        self.seen_cve_ids = set()
 
 
     """
@@ -118,16 +119,19 @@ class Orbit:
                     # Handling HTTP errors
                     except requests.exceptions.HTTPError as e:
                         if response.status_code >= 500:
-                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            if DEBUG:
+                                print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
                             time.sleep(1800) # Sleep for 30 minutes in case of server error
                             continue
 
                         else:
-                            print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
+                            if DEBUG:
+                                print(self.colors.red(f'[ERR] HTTP error occurred: {e}'))
                             break
                     
                     except json.decoder.JSONDecodeError as e:
-                        print(self.colors.red(f'[ERR] JSON error occurred: {e}'))
+                        if DEBUG:
+                            print(self.colors.red(f'[ERR] JSON error occurred: {e}'))
                         break
 
                 # Checking the data variable for NoneType
@@ -154,6 +158,9 @@ class Orbit:
                     description = data['vulnerabilities'][i]['cve']['descriptions'][0]['value']
                     timestamp = data['vulnerabilities'][i]['cve']['published']
                     last_modified = data['vulnerabilities'][i]['cve']['lastModified']
+
+                    if cve_id in self.seen_cve_ids:
+                        continue # Skip this CVE if we have already seen it
 
                     # Default values for CVSS metrics
                     base_score = 'N/A'
@@ -209,8 +216,6 @@ class Orbit:
                         'Description': description
                     })
 
-                
-   
         return results
     
 
@@ -220,7 +225,7 @@ class Orbit:
         timer = time.time()
         start_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000')
         file_path = 'cveorbit_monitoring.json'
-        file_size_limit = 200 * 1024 * 1024
+        file_size_limit = 200 * 1024 * 1024 # 200 MB
 
         # This is useless but I love it! xD
         spinner = ['|', '/', '-', '\\']
@@ -229,6 +234,7 @@ class Orbit:
         values = list(names.values())
         f_values = self.flatten_if_nested(values)
         
+        # To reduce the amount of requests (otherwise it will do a GET request for each vendor and count it as ONE) we divide the request limit by the amount of vendors
         if len(f_values) > 1:
             request_limit /= len(f_values)
 
@@ -247,7 +253,7 @@ class Orbit:
                         else:
                             mode = 'w'
 
-                        if results:
+                        if results: # If there are any results, we save them into the JSON file
                             with open(file_path, mode) as f:
                                 json.dump(results, f, indent=5)
                                 f.write('\n')
