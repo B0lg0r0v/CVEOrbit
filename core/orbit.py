@@ -273,7 +273,7 @@ class Orbit:
                         # Visual timer
                         for remaining in range(int(update_period), 0, -1):
                             for symbol in spinner:
-                                sys.stdout.write(self.colors.blue(f"\r[INF] Sleeping: {remaining} seconds remaining {symbol}"))
+                                sys.stdout.write(self.colors.blue(f"\r[INF] Sleeping: {remaining} second(s) remaining {symbol}"))
                                 sys.stdout.flush()
                                 time.sleep(0.25)
 
