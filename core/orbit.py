@@ -137,7 +137,7 @@ class Orbit:
                 # Checking the data variable for NoneType
                 if data is None:
                     print(self.colors.red(f'[ERR] No data found for {f_value}'))
-                    continue
+                    continue # Skip this vendor or product
                 
                 # Getting the amount of vulnerabilities found (amount of keys inside the 'vulnerabilities' key)
                 amount = len(data['vulnerabilities'])
@@ -221,6 +221,13 @@ class Orbit:
                     if cve_id not in self.seen_cve_ids:
                         self.seen_cve_ids.add(cve_id)
 
+                    # Update the last fetched timestamp
+                    if self.last_fetched_timestamp is None or timestamp > self.last_fetched_timestamp:
+                        if DEBUG:
+                            print(self.colors.light_yellow(f'[DBG] Updating the "pubStartDate" to: {timestamp}'))
+
+                        self.last_fetched_timestamp = timestamp
+
         return results
     
 
@@ -247,7 +254,15 @@ class Orbit:
             while True:
                 if request_count < request_limit:
                    
-                    filters['pubStartDate'] = start_time
+                    # I've got some weird issues during testing: when the orbit mode found a CVE, it would fetch the same CVE again and again
+                    # So the plan is to "dynamically" update the "pubStartDate" filter to the last fetched timestamp
+                    # This way we can avoid fetching the same CVEs (in theory :D)
+                    if self.last_fetched_timestamp is None:
+                        filters['pubStartDate'] = start_time
+                    
+                    else:
+                        filters['pubStartDate'] = self.last_fetched_timestamp
+                    
                     filters['pubEndDate'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
                     results = self.search_engine(names, filters, SAVE_TO_JSON, DEBUG)
