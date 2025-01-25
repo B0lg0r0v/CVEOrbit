@@ -218,7 +218,8 @@ class Orbit:
                     })
 
                     # Adding the CVE ID to the set
-                    self.seen_cve_ids.add(cve_id)
+                    if cve_id not in self.seen_cve_ids:
+                        self.seen_cve_ids.add(cve_id)
 
         return results
     
