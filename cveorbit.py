@@ -6,6 +6,7 @@ from core.search import Fetcher
 from core.orbit import Orbit
 import os
 import sys
+from datetime import datetime
 
 def main():
 
@@ -322,6 +323,7 @@ def main():
             request_limit = 5
 
         print(color.blue(f'[INF] Orbit mode activated...'))
+        print(color.blue(f'[INF] Start date: \t\t{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'))
         print(color.blue(f'[INF] Update period: \t\t{update_period} seconds'))
         print(color.blue(f'[INF] Limiting requests to: \t{request_limit}'))
 
