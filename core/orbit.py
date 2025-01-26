@@ -299,8 +299,6 @@ class Orbit:
 
                     request_count = 0
                     timer = time.time()
-
-                    print('\n')
         
         except KeyboardInterrupt:
             print(self.colors.blue(f'\n[INF] You aborted the fetching process. Exiting...'))
